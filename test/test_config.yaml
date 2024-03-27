@@ -1,0 +1,23 @@
+---
+remotes:
+  - server: 1.1.1.1
+    remotePort: 22
+    localPort: 1339
+    localHost: 127.0.0.1
+    sshServer:
+      host: 55.55.55.55
+      port: 22022
+      user: user1
+      keyPath: ssh-key-1
+      useKeyPass: false   
+
+  - server: 2.2.2.2
+    remotePort: 23
+    localPort: 1340
+    localHost: 127.0.0.2
+    sshServer:
+      host: 66.66.66.66
+      port: 1339
+      user: user2
+      keyPath: embedKey
+      useKeyPass: false
