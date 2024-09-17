@@ -1,23 +1,41 @@
 ---
-remotes:
-  - server: 1.1.1.1
-    remotePort: 22
-    localPort: 1339
-    localHost: 127.0.0.1
+version: "0.2"
+configs:
+  - name: server_name_0
+    local:
+      host: 127.0.0.1
+      port: 8080
+    remote:
+      host: 1.1.1.1
+      port: 7777
     sshServer:
       host: 55.55.55.55
-      port: 22022
-      user: user1
-      keyPath: ssh-key-1
-      useKeyPass: false   
-
-  - server: 2.2.2.2
-    remotePort: 23
-    localPort: 1340
-    localHost: 127.0.0.2
+      user: user0
+      port: 22
+      userPassword: 1
+  - name: server_name_1
+    local:
+      host: 127.0.0.1
+      port: 8888
+    remote:
+      host: 2.2.2.2
+      port: 44444
     sshServer:
       host: 66.66.66.66
-      port: 1339
+      user: user1
+      port: 22
+      keyPath: /home/user1/.ssh/ssh.key
+      useKeyPass: false
+  - name: server_name_2
+    local:
+      host: 127.0.0.1
+      port: 8888
+    remote:
+      host: 3.3.3.3
+      port: 55555
+    sshServer:
+      host: 77.77.77.77
       user: user2
+      port: 22
       keyPath: embedKey
       useKeyPass: false
