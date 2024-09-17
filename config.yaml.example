@@ -10,16 +10,18 @@ remotes:
       user: user # SSH user
       keyPath: id_rsa # path to the ssh key file; allowed values [path to key] or `embedKey` in the second case, the key from the embedKey.ssh file will be added at build time.
       useKeyPass: false # Passphrase for decryption ssh key, passphrase is prompted at startup
+      userPassword: # User's ssh password
 
   - server: server2
     remotePort: 80
     localPort: 38082
     sshServer:
       host: server
-      port: 22
+      port: 22 
       user: user
       keyPath: id_rsa 
       useKeyPass: false
+      userPassword:
 
   - server: server3
     remotePort: 80
@@ -30,3 +32,4 @@ remotes:
       user: user
       keyPath: id_rsa
       useKeyPass: false 
+      userPassword:
