@@ -29,12 +29,13 @@ var (
 )
 
 type SshServer struct {
-	Host       string `yaml:"host"`
-	Port       int    `yaml:"port"`
-	User       string `yaml:"user"`
-	KeyPath    string `yaml:"keyPath"`
-	UseKeyPass bool   `yaml:"useKeyPass"`
-	KeyPass    string `yaml:"keyPass"`
+	Host         string `yaml:"host"`
+	Port         int    `yaml:"port"`
+	User         string `yaml:"user"`
+	KeyPath      string `yaml:"keyPath"`
+	UseKeyPass   bool   `yaml:"useKeyPass"`
+	KeyPass      string `yaml:"keyPass"`
+	UserPassword string `yaml:"userPassword"`
 }
 
 type Remote struct {
@@ -61,7 +62,7 @@ func (cfg *YamlConfig) getconfig(configPath string) {
 
 	for index, remote := range cfg.Remotes {
 		// Ask passphrase for encrypted ssh key
-		if remote.SshServer.UseKeyPass {
+		if remote.SshServer.UseKeyPass && remote.SshServer.KeyPass == "" {
 			fmt.Println("Enter password for encrypted ssh key")
 			bytepw, err := term.ReadPassword(int(syscall.Stdin))
 			if err != nil {
@@ -90,22 +91,23 @@ func createConnection(sshConfig *SshServer, remoteHostConfig Remote, waitGroup *
 		remoteHostConfig.LocalHost = "127.0.0.1"
 		sshTun.SetLocalHost(remoteHostConfig.LocalHost)
 	}
-
-	// When using embed key without encryption
-	if sshConfig.KeyPath == "embedKey" && !sshConfig.UseKeyPass && len(embedKey) > 0 {
-		sshTun.SetKeyReader(bytes.NewBuffer(embedKey))
-
-		// When using embed key with encryption
-	} else if sshConfig.KeyPath == "embedKey" && sshConfig.UseKeyPass && len(embedKey) > 0 {
-		sshTun.SetEncryptedKeyReader(bytes.NewBuffer(embedKey), sshConfig.KeyPass)
-
-		// When using encrypted key from disk
-	} else if sshConfig.UseKeyPass {
-		sshTun.SetEncryptedKeyFile(sshConfig.KeyPath, sshConfig.KeyPass)
-
-		// When using ssh key from disk without encryption
-	} else {
-		sshTun.SetKeyFile(sshConfig.KeyPath)
+	if sshConfig.KeyPath != "" {
+		// When using embed key without encryption
+		if sshConfig.KeyPath == "embedKey" && !sshConfig.UseKeyPass && len(embedKey) > 0 {
+			sshTun.SetKeyReader(bytes.NewBuffer(embedKey))
+			// When using embed key with encryption
+		} else if sshConfig.KeyPath == "embedKey" && sshConfig.UseKeyPass && len(embedKey) > 0 {
+			sshTun.SetEncryptedKeyReader(bytes.NewBuffer(embedKey), sshConfig.KeyPass)
+			// When using encrypted key from disk
+		} else if sshConfig.UseKeyPass {
+			sshTun.SetEncryptedKeyFile(sshConfig.KeyPath, sshConfig.KeyPass)
+			// When using ssh key from disk without encryption
+		} else {
+			sshTun.SetKeyFile(sshConfig.KeyPath)
+		}
+	}
+	if sshConfig.UserPassword != "" {
+		sshTun.SetPassword(sshConfig.UserPassword)
 	}
 
 	// We print each tunneled state to see the connections status
