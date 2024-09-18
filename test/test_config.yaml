@@ -1,23 +1,84 @@
 ---
-remotes:
-  - server: 1.1.1.1
-    remotePort: 22
-    localPort: 1339
-    localHost: 127.0.0.1
-    sshServer:
-      host: 55.55.55.55
-      port: 22022
+version: "2"
+configs:
+  - name: server_name_1
+    local:
+      host: 127.0.0.1
+      port: 8080
+    remote:
+      host: 1.1.1.1
+      port: 11111
+    ssh:
+      host: 11.11.11.11
       user: user1
-      keyPath: ssh-key-1
-      useKeyPass: false   
+      port: 22
+      auth:
+        method: password
+        password: 1
+        key:
+          path:
+          password: 
 
-  - server: 2.2.2.2
-    remotePort: 23
-    localPort: 1340
-    localHost: 127.0.0.2
-    sshServer:
-      host: 66.66.66.66
-      port: 1339
+  - name: server_name_2
+    local:
+      host: 127.0.0.1
+      port: 8080
+    remote:
+      host: 2.2.2.2
+      port: 22222
+    ssh:
+      host: 22.22.22.22
       user: user2
-      keyPath: embedKey
-      useKeyPass: false
+      port: 22
+      auth:
+        method: key
+        key:
+          path: /home/user2/.ssh/ssh.key
+
+  - name: server_name_3
+    local:
+      host: 127.0.0.1
+      port: 8888
+    remote:
+      host: 3.3.3.3
+      port: 33333
+    ssh:
+      host: 33.33.33.33
+      user: user3
+      port: 22
+      auth:
+        method: embedKey
+
+  - name: server_name_4
+    local:
+      host: 127.0.0.1
+      port: 8888
+    remote:
+      host: 4.4.4.4
+      port: 44444
+    ssh:
+      host: 44.44.44.44
+      user: user4
+      port: 22
+      auth:
+        method: key-encrypted
+        key:
+          path: /home/user4/.ssh/ssh.key
+          password: 1234
+  
+  - name: server_name_5
+    local:
+      host: 127.0.0.1
+      port: 8888
+    remote:
+      host: 5.5.5.5
+      port: 55555
+    ssh:
+      host: 55.55.55.55
+      user: user5
+      port: 22
+      auth:
+        method: embedKey-encrypted
+        key:
+          path: /home/user5/.ssh/ssh.key
+          password: 1234

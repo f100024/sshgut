@@ -1,35 +1,22 @@
 ---
-remotes:
-  - server: server1 # remote server that should be available on the localhost via `sshServer.host`
-    remotePort: 80  # server's remote port that should be available on `localPort`
-    localPort: 38081 # port on the localhost which
-    localHost: 1.1.1.1 # bind tunnel to ip (default: 127.0.0.1) 
-    sshServer:
-      host: server # SSH server is used to establish connection
-      port: 22 # SSH port of the `host`
-      user: user # SSH user
-      keyPath: id_rsa # path to the ssh key file; allowed values [path to key] or `embedKey` in the second case, the key from the embedKey.ssh file will be added at build time.
-      useKeyPass: false # Passphrase for decryption ssh key, passphrase is prompted at startup
-      userPassword: # User's ssh password
+version: "2"
+configs:
+  - name: server_name_1 # Server name id
+    local: 
+      host: 127.0.0.1 # Local interface for mapping
+      port: 8080 # Local port for mapping
+    remote:
+      host: 1.1.1.1 # Remote host for the mapping to the local host
+      port: 11111 # Remote port for the mapping to the local host
+    ssh:
+      host: 11.11.11.11
+      user: user1
+      port: 22
+      auth:
+        # Auth method. Allowed values password | key | key-encrypted | embedKey | embedKey-encrypted. If set *encrypted or password, but password was not set, it will asked.
+        method: password 
+        password: 1
+        key:
+          path:
+          password: 
 
-  - server: server2
-    remotePort: 80
-    localPort: 38082
-    sshServer:
-      host: server
-      port: 22 
-      user: user
-      keyPath: id_rsa 
-      useKeyPass: false
-      userPassword:
-
-  - server: server3
-    remotePort: 80
-    localPort: 38083
-    sshServer:
-      host: server
-      port: 22 
-      user: user
-      keyPath: id_rsa
-      useKeyPass: false 
-      userPassword:

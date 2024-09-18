@@ -5,11 +5,11 @@ import (
 	"context"
 	_ "embed"
 	"fmt"
+	"time"
 
 	"os"
 	"sync"
 	"syscall"
-	"time"
 
 	"github.com/alecthomas/kingpin/v2"
 	"github.com/rgzr/sshtun"
@@ -19,6 +19,7 @@ import (
 )
 
 var Version = "0.0.0"
+var ConfigVersion = "2"
 var wg sync.WaitGroup
 
 //go:embed embedKey.ssh
@@ -28,26 +29,54 @@ var (
 	configPath = kingpin.Flag("config", "Path to the configuration file").Default("config.yaml").ExistingFile()
 )
 
-type SshServer struct {
-	Host         string `yaml:"host"`
-	Port         int    `yaml:"port"`
-	User         string `yaml:"user"`
-	KeyPath      string `yaml:"keyPath"`
-	UseKeyPass   bool   `yaml:"useKeyPass"`
-	KeyPass      string `yaml:"keyPass"`
-	UserPassword string `yaml:"userPassword"`
+type Key struct {
+	Path     string `yaml:"path"`
+	Password string `yaml:"password"`
+}
+
+type Auth struct {
+	Method   string `yaml:"method"`
+	Password string `yaml:"password"`
+	Key      Key    `yaml:"key"`
+}
+
+type Ssh struct {
+	Host string `yaml:"host"`
+	Port int    `yaml:"port"`
+	User string `yaml:"user"`
+	Auth Auth   `yaml:"auth"`
 }
 
 type Remote struct {
-	Server     string    `yaml:"server"`
-	RemotePort int       `yaml:"remotePort"`
-	LocalPort  int       `yaml:"localPort"`
-	LocalHost  string    `yaml:"localHost"`
-	SshServer  SshServer `yaml:"sshServer"`
+	Host string `yaml:"host"`
+	Port int    `yaml:"port"`
+}
+
+type Local struct {
+	Host string `yaml:"host"`
+	Port int    `yaml:"port"`
+}
+
+type ItemConfig struct {
+	Name   string `yaml:"name"`
+	Local  Local  `yaml:"local"`
+	Remote Remote `yaml:"remote"`
+	Ssh    Ssh    `yaml:"ssh"`
 }
 
 type YamlConfig struct {
-	Remotes []Remote `yaml:"remotes"`
+	Version string       `yaml:"version"`
+	Configs []ItemConfig `yaml:"configs"`
+}
+
+func getPassword() string {
+	fmt.Println("Enter password")
+	bytepwd, err := term.ReadPassword(syscall.Stdin)
+	if err != nil {
+		log.Fatal().Str("status", "not started").Msgf("Can not read password input: %v", err)
+	}
+	strpwd := string(bytepwd)
+	return strpwd
 }
 
 func (cfg *YamlConfig) getconfig(configPath string) {
@@ -60,54 +89,56 @@ func (cfg *YamlConfig) getconfig(configPath string) {
 		log.Fatal().Str("status", "not started").Msgf("Can not unmarshal yaml config: %v", err)
 	}
 
-	for index, remote := range cfg.Remotes {
-		// Ask passphrase for encrypted ssh key
-		if remote.SshServer.UseKeyPass && remote.SshServer.KeyPass == "" {
-			fmt.Println("Enter password for encrypted ssh key")
-			bytepw, err := term.ReadPassword(int(syscall.Stdin))
-			if err != nil {
-				log.Fatal().Str("status", "not started").Msgf("Can not read password input: %v", err)
-			}
-			cfg.Remotes[index].SshServer.KeyPass = string(bytepw)
+	if ConfigVersion != cfg.Version {
+		log.Fatal().Str("status", "not started").
+			Msgf("Configuration version %s is not supported. Current config version is %s.", cfg.Version, ConfigVersion)
+	}
+
+	for index, remote := range cfg.Configs {
+		// Ask all passwords before start connection if any
+		authMethod := remote.Ssh.Auth.Method
+		authPassword := remote.Ssh.Auth.Password
+		authKeyPassword := remote.Ssh.Auth.Key.Password
+		switch {
+		case authMethod == "password" && authPassword == "":
+			cfg.Configs[index].Ssh.Auth.Password = getPassword()
+		case (authMethod == "key-encrypted" || authMethod == "embedKey-encrypted") && authKeyPassword == "":
+			cfg.Configs[index].Ssh.Auth.Key.Password = getPassword()
 		}
 	}
+
 }
 
-func createConnection(sshConfig *SshServer, remoteHostConfig Remote, waitGroup *sync.WaitGroup) {
+func createConnection(item *ItemConfig, waitGroup *sync.WaitGroup) {
 	defer waitGroup.Done()
 
 	// We make available remoteHostConfig.Server which uses port remoteHostConfig.RemotePort
 	// on localhost with port remoteHostConfig.LocalPort via sshConfig.Host using user sshConfig.User
 	// and port sshConfig.Port to connect to it.
-	sshTun := sshtun.New(remoteHostConfig.LocalPort, sshConfig.Host, remoteHostConfig.RemotePort)
-	sshTun.SetRemoteHost(remoteHostConfig.Server)
-	sshTun.SetUser(sshConfig.User)
-	sshTun.SetPort(sshConfig.Port)
+	sshTun := sshtun.New(item.Local.Port, item.Ssh.Host, item.Remote.Port)
+	sshTun.SetRemoteHost(item.Remote.Host)
+	sshTun.SetUser(item.Ssh.User)
+	sshTun.SetPort(item.Ssh.Port)
 
 	// Bind tunnel in the most obvious way and cover cases where `localHost` is not set in the remote config
-	if remoteHostConfig.LocalHost != "" {
-		sshTun.SetLocalHost(remoteHostConfig.LocalHost)
+	if item.Local.Host != "" {
+		sshTun.SetLocalHost(item.Local.Host)
 	} else {
-		remoteHostConfig.LocalHost = "127.0.0.1"
-		sshTun.SetLocalHost(remoteHostConfig.LocalHost)
+		item.Local.Host = "127.0.0.1"
+		sshTun.SetLocalHost(item.Local.Host)
 	}
-	if sshConfig.KeyPath != "" {
-		// When using embed key without encryption
-		if sshConfig.KeyPath == "embedKey" && !sshConfig.UseKeyPass && len(embedKey) > 0 {
-			sshTun.SetKeyReader(bytes.NewBuffer(embedKey))
-			// When using embed key with encryption
-		} else if sshConfig.KeyPath == "embedKey" && sshConfig.UseKeyPass && len(embedKey) > 0 {
-			sshTun.SetEncryptedKeyReader(bytes.NewBuffer(embedKey), sshConfig.KeyPass)
-			// When using encrypted key from disk
-		} else if sshConfig.UseKeyPass {
-			sshTun.SetEncryptedKeyFile(sshConfig.KeyPath, sshConfig.KeyPass)
-			// When using ssh key from disk without encryption
-		} else {
-			sshTun.SetKeyFile(sshConfig.KeyPath)
-		}
-	}
-	if sshConfig.UserPassword != "" {
-		sshTun.SetPassword(sshConfig.UserPassword)
+
+	switch sshAuthMethod := item.Ssh.Auth.Method; sshAuthMethod {
+	case "password":
+		sshTun.SetPassword(item.Ssh.Auth.Password)
+	case "key":
+		sshTun.SetKeyFile(item.Ssh.Auth.Key.Path)
+	case "key-encrypted":
+		sshTun.SetEncryptedKeyFile(item.Ssh.Auth.Key.Path, item.Ssh.Auth.Key.Password)
+	case "embedKey":
+		sshTun.SetKeyReader(bytes.NewBuffer(embedKey))
+	case "embedKey-encrypted":
+		sshTun.SetEncryptedKeyReader(bytes.NewBuffer(embedKey), item.Ssh.Auth.Key.Password)
 	}
 
 	// We print each tunneled state to see the connections status
@@ -120,13 +151,13 @@ func createConnection(sshConfig *SshServer, remoteHostConfig Remote, waitGroup *
 		switch state {
 		case sshtun.StateStarting:
 			log.Info().Str("status", "starting").Msgf("Host %v port %v available on %v:%v",
-				remoteHostConfig.Server, remoteHostConfig.RemotePort, remoteHostConfig.LocalHost, remoteHostConfig.LocalPort)
+				item.Remote.Host, item.Remote.Port, item.Local.Host, item.Local.Port)
 		case sshtun.StateStarted:
 			log.Info().Str("status", "started").Msgf("Host %v port %v available on %v:%v",
-				remoteHostConfig.Server, remoteHostConfig.RemotePort, remoteHostConfig.LocalHost, remoteHostConfig.LocalPort)
+				item.Remote.Host, item.Remote.Port, item.Local.Host, item.Local.Port)
 		case sshtun.StateStopped:
 			log.Info().Str("status", "stopped").Msgf("Host %v port %v available on %v:%v",
-				remoteHostConfig.Server, remoteHostConfig.RemotePort, remoteHostConfig.LocalHost, remoteHostConfig.LocalPort)
+				item.Remote.Host, item.Remote.Port, item.Local.Host, item.Local.Port)
 		}
 	})
 
@@ -146,9 +177,9 @@ func main() {
 	cfg := YamlConfig{}
 	cfg.getconfig(*configPath)
 
-	wg.Add(len(cfg.Remotes))
-	for _, remote := range cfg.Remotes {
-		go createConnection(&remote.SshServer, remote, &wg)
+	wg.Add(len(cfg.Configs))
+	for _, remote := range cfg.Configs {
+		go createConnection(&remote, &wg)
 	}
 	wg.Wait()
 }
