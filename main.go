@@ -71,7 +71,7 @@ type YamlConfig struct {
 
 func getPassword() string {
 	fmt.Println("Enter password")
-	bytepwd, err := term.ReadPassword(syscall.Stdin)
+	bytepwd, err := term.ReadPassword(int(syscall.Stdin))
 	if err != nil {
 		log.Fatal().Str("status", "not started").Msgf("Can not read password input: %v", err)
 	}
