@@ -5,6 +5,8 @@ import (
 	"context"
 	_ "embed"
 	"fmt"
+	"slices"
+	"strings"
 	"time"
 
 	"os"
@@ -26,7 +28,10 @@ var wg sync.WaitGroup
 var embedKey []byte
 
 var (
-	configPath = kingpin.Flag("config", "Path to the configuration file").Default("config.yaml").ExistingFile()
+	configPath      = kingpin.Flag("config", "Path to the configuration file").Default("config.yaml").ExistingFile()
+	configShow      = kingpin.Flag("config-show", "Show configuration file").Bool()
+	configShowNames = kingpin.Flag("config-show-names", "Show names from configuration file").Bool()
+	runCustomNames  = kingpin.Flag("run-custom-names", "Establish connection to custom names from config. Delimiter:','").String()
 )
 
 type Key struct {
@@ -77,6 +82,20 @@ func getPassword() string {
 	}
 	strpwd := string(bytepwd)
 	return strpwd
+}
+
+func (configData *YamlConfig) showConfig() {
+	data, err := yaml.Marshal(configData)
+	if err != nil {
+		log.Fatal().Str("status", "error").Msgf("Can not marshal config data: %v", err)
+	}
+	fmt.Println(string(data))
+}
+
+func (configData *YamlConfig) showConfigNames() {
+	for _, config := range configData.Configs {
+		fmt.Println(config.Name)
+	}
 }
 
 func (cfg *YamlConfig) getconfig(configPath string) {
@@ -176,9 +195,30 @@ func main() {
 
 	cfg := YamlConfig{}
 	cfg.getconfig(*configPath)
+	finalConfigs := cfg.Configs
+
+	switch {
+	case *configShow:
+		cfg.showConfig()
+		os.Exit(0)
+	case *configShowNames:
+		cfg.showConfigNames()
+		os.Exit(0)
+	case len(*runCustomNames) > 0:
+		 finalConfigs = func() []ItemConfig{
+			customConfigs := []ItemConfig{}
+			parsedNames := strings.Split(*runCustomNames, ",")
+			for _, item := range finalConfigs {
+				if slices.Contains(parsedNames, item.Name) {
+					customConfigs = append(customConfigs, item)
+				}
+			}
+			return customConfigs
+		}()
+	}
 
 	wg.Add(len(cfg.Configs))
-	for _, remote := range cfg.Configs {
+	for _, remote := range finalConfigs {
 		go createConnection(&remote, &wg)
 	}
 	wg.Wait()

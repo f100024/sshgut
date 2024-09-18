@@ -1,3 +1,5 @@
+# 0.2.1 - 18 September 2024
+Add parameters --config, --config-show, --config-show-names, --run-custom-names
 # 0.2.0 - 18 September 2024
 Refined configuration file format
 # 0.1.2 - 17 September 2024
