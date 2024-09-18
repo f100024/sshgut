@@ -18,7 +18,8 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-var Version = "0.2.0"
+var Version = "0.0.0"
+var ConfigVersion = "2"
 var wg sync.WaitGroup
 
 //go:embed embedKey.ssh
@@ -28,14 +29,22 @@ var (
 	configPath = kingpin.Flag("config", "Path to the configuration file").Default("config.yaml").ExistingFile()
 )
 
-type SshServer struct {
-	Host         string `yaml:"host"`
-	Port         int    `yaml:"port"`
-	User         string `yaml:"user"`
-	KeyPath      string `yaml:"keyPath"`
-	UseKeyPass   bool   `yaml:"useKeyPass"`
-	KeyPass      string `yaml:"keyPass"`
-	UserPassword string `yaml:"userPassword"`
+type Key struct {
+	Path     string `yaml:"path"`
+	Password string `yaml:"password"`
+}
+
+type Auth struct {
+	Method   string `yaml:"method"`
+	Password string `yaml:"password"`
+	Key      Key    `yaml:"key"`
+}
+
+type Ssh struct {
+	Host string `yaml:"host"`
+	Port int    `yaml:"port"`
+	User string `yaml:"user"`
+	Auth Auth   `yaml:"auth"`
 }
 
 type Remote struct {
@@ -49,15 +58,25 @@ type Local struct {
 }
 
 type ItemConfig struct {
-	Name      string    `yaml:"name"`
-	Local     Local     `yaml:"local"`
-	Remote    Remote    `yaml:"remote"`
-	SshServer SshServer `yaml:"sshServer"`
+	Name   string `yaml:"name"`
+	Local  Local  `yaml:"local"`
+	Remote Remote `yaml:"remote"`
+	Ssh    Ssh    `yaml:"ssh"`
 }
 
 type YamlConfig struct {
 	Version string       `yaml:"version"`
 	Configs []ItemConfig `yaml:"configs"`
+}
+
+func getPassword() string {
+	fmt.Println("Enter password")
+	bytepwd, err := term.ReadPassword(syscall.Stdin)
+	if err != nil {
+		log.Fatal().Str("status", "not started").Msgf("Can not read password input: %v", err)
+	}
+	strpwd := string(bytepwd)
+	return strpwd
 }
 
 func (cfg *YamlConfig) getconfig(configPath string) {
@@ -70,17 +89,24 @@ func (cfg *YamlConfig) getconfig(configPath string) {
 		log.Fatal().Str("status", "not started").Msgf("Can not unmarshal yaml config: %v", err)
 	}
 
+	if ConfigVersion != cfg.Version {
+		log.Fatal().Str("status", "not started").
+			Msgf("Configuration version %s is not supported. Current config version is %s.", cfg.Version, ConfigVersion)
+	}
+
 	for index, remote := range cfg.Configs {
-		// Ask passphrase for encrypted ssh key
-		if remote.SshServer.UseKeyPass && remote.SshServer.KeyPass == "" {
-			fmt.Println("Enter password for encrypted ssh key")
-			bytepw, err := term.ReadPassword(int(syscall.Stdin))
-			if err != nil {
-				log.Fatal().Str("status", "not started").Msgf("Can not read password input: %v", err)
-			}
-			cfg.Configs[index].SshServer.KeyPass = string(bytepw)
+		// Ask all passwords before start connection if any
+		authMethod := remote.Ssh.Auth.Method
+		authPassword := remote.Ssh.Auth.Password
+		authKeyPassword := remote.Ssh.Auth.Key.Password
+		switch {
+		case authMethod == "password" && authPassword == "":
+			cfg.Configs[index].Ssh.Auth.Password = getPassword()
+		case (authMethod == "key-encrypted" || authMethod == "embedKey-encrypted") && authKeyPassword == "":
+			cfg.Configs[index].Ssh.Auth.Key.Password = getPassword()
 		}
 	}
+
 }
 
 func createConnection(item *ItemConfig, waitGroup *sync.WaitGroup) {
@@ -89,10 +115,10 @@ func createConnection(item *ItemConfig, waitGroup *sync.WaitGroup) {
 	// We make available remoteHostConfig.Server which uses port remoteHostConfig.RemotePort
 	// on localhost with port remoteHostConfig.LocalPort via sshConfig.Host using user sshConfig.User
 	// and port sshConfig.Port to connect to it.
-	sshTun := sshtun.New(item.Local.Port, item.SshServer.Host, item.Remote.Port)
+	sshTun := sshtun.New(item.Local.Port, item.Ssh.Host, item.Remote.Port)
 	sshTun.SetRemoteHost(item.Remote.Host)
-	sshTun.SetUser(item.SshServer.User)
-	sshTun.SetPort(item.SshServer.Port)
+	sshTun.SetUser(item.Ssh.User)
+	sshTun.SetPort(item.Ssh.Port)
 
 	// Bind tunnel in the most obvious way and cover cases where `localHost` is not set in the remote config
 	if item.Local.Host != "" {
@@ -101,23 +127,18 @@ func createConnection(item *ItemConfig, waitGroup *sync.WaitGroup) {
 		item.Local.Host = "127.0.0.1"
 		sshTun.SetLocalHost(item.Local.Host)
 	}
-	if item.SshServer.KeyPath != "" {
-		// When using embed key without encryption
-		if item.SshServer.KeyPath == "embedKey" && !item.SshServer.UseKeyPass && len(embedKey) > 0 {
-			sshTun.SetKeyReader(bytes.NewBuffer(embedKey))
-			// When using embed key with encryption
-		} else if item.SshServer.KeyPath == "embedKey" && item.SshServer.UseKeyPass && len(embedKey) > 0 {
-			sshTun.SetEncryptedKeyReader(bytes.NewBuffer(embedKey), item.SshServer.KeyPass)
-			// When using encrypted key from disk
-		} else if item.SshServer.UseKeyPass {
-			sshTun.SetEncryptedKeyFile(item.SshServer.KeyPath, item.SshServer.KeyPass)
-			// When using ssh key from disk without encryption
-		} else {
-			sshTun.SetKeyFile(item.SshServer.KeyPath)
-		}
-	}
-	if item.SshServer.UserPassword != "" {
-		sshTun.SetPassword(item.SshServer.UserPassword)
+
+	switch sshAuthMethod := item.Ssh.Auth.Method; sshAuthMethod {
+	case "password":
+		sshTun.SetPassword(item.Ssh.Auth.Password)
+	case "key":
+		sshTun.SetKeyFile(item.Ssh.Auth.Key.Path)
+	case "key-encrypted":
+		sshTun.SetEncryptedKeyFile(item.Ssh.Auth.Key.Path, item.Ssh.Auth.Key.Password)
+	case "embedKey":
+		sshTun.SetKeyReader(bytes.NewBuffer(embedKey))
+	case "embedKey-encrypted":
+		sshTun.SetEncryptedKeyReader(bytes.NewBuffer(embedKey), item.Ssh.Auth.Key.Password)
 	}
 
 	// We print each tunneled state to see the connections status

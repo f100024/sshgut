@@ -1,5 +1,5 @@
-# 0.2.0 - 
-
+# 0.2.0 - 18 September 2024
+Refined configuration file format
 # 0.1.2 - 17 September 2024
 Add login using ssh password
 Update dependencies
