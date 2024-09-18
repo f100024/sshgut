@@ -8,7 +8,6 @@ Example of the configuration file `config.yaml.example`
 
 ```
 ---
----
 version: "2"
 configs:
   - name: server_name_1 # Server name id
@@ -30,11 +29,18 @@ configs:
           path:
           password:  
 ```
-## How to run
-
-Put config.yaml with sshgut and run it or set the path to the configuration file as below:
+## How to use
 ```
-$ ./sshgut 
-or
-$ ./sshgut --config your_config.yaml
+./sshgut --help
+usage: sshgut [<flags>]
+
+Flags:
+  --[no-]help               Show context-sensitive help (also try --help-long and --help-man).
+  --config=config.yaml      Path to the configuration file
+  --[no-]config-show        Show configuration file
+  --[no-]config-show-names  Show names from configuration file
+  --run-custom-names=RUN-CUSTOM-NAMES  
+                            Establish connection to custom names from config. Delimiter:','
+  --[no-]version            Show application version.
+
 ```
