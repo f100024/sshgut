@@ -28,6 +28,7 @@ var wg sync.WaitGroup
 var embedKey []byte
 
 var (
+	debugMode       = kingpin.Flag("debug", "Add debug logs").Bool()
 	configPath      = kingpin.Flag("config", "Path to the configuration file").Default("config.yaml").ExistingFile()
 	configShow      = kingpin.Flag("config-show", "Show configuration file").Bool()
 	configShowNames = kingpin.Flag("config-show-names", "Show names from configuration file").Bool()
@@ -162,20 +163,22 @@ func createConnection(item *ItemConfig, waitGroup *sync.WaitGroup) {
 
 	// We print each tunneled state to see the connections status
 	sshTun.SetTunneledConnState(func(tun *sshtun.SSHTun, state *sshtun.TunneledConnState) {
-		log.Info().Str("status", "ok").Msgf("%+v", state)
+		if *debugMode {
+			log.Debug().Str("status", "ok").Str("name", item.Name).Msgf("%+v", state)
+		}
 	})
 
 	// We set a callback to know when the tunnel is ready
 	sshTun.SetConnState(func(tun *sshtun.SSHTun, state sshtun.ConnState) {
 		switch state {
 		case sshtun.StateStarting:
-			log.Info().Str("status", "starting").Msgf("Host %v port %v available on %v:%v",
+			log.Info().Str("status", "starting").Str("name", item.Name).Msgf("Host %v port %v available on %v:%v",
 				item.Remote.Host, item.Remote.Port, item.Local.Host, item.Local.Port)
 		case sshtun.StateStarted:
-			log.Info().Str("status", "started").Msgf("Host %v port %v available on %v:%v",
+			log.Info().Str("status", "started").Str("name", item.Name).Msgf("Host %v port %v available on %v:%v",
 				item.Remote.Host, item.Remote.Port, item.Local.Host, item.Local.Port)
 		case sshtun.StateStopped:
-			log.Info().Str("status", "stopped").Msgf("Host %v port %v available on %v:%v",
+			log.Info().Str("status", "stopped").Str("name", item.Name).Msgf("Host %v port %v available on %v:%v",
 				item.Remote.Host, item.Remote.Port, item.Local.Host, item.Local.Port)
 		}
 	})
@@ -205,7 +208,7 @@ func main() {
 		cfg.showConfigNames()
 		os.Exit(0)
 	case len(*runCustomNames) > 0:
-		 finalConfigs = func() []ItemConfig{
+		finalConfigs = func() []ItemConfig {
 			customConfigs := []ItemConfig{}
 			parsedNames := strings.Split(*runCustomNames, ",")
 			for _, item := range finalConfigs {
