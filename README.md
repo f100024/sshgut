@@ -45,3 +45,26 @@ Flags:
   --[no-]version            Show application version.
 
 ```
+### Docker
+Add configuration file to the container.
+
+```bash
+$ docker run -it \
+-v ${PWD}/config.yaml:/app/config.yaml \
+-v ./ssh-key:/app/ssh-key \
+-p 127.0.0.1:8080:8080 f100024/sshgut:latest
+```
+
+docker-compose.yaml
+```yaml
+---
+version: '2'
+services:
+  sshgut:
+    image: f100024/sshgut:latest
+    ports:
+      - 127.0.0.1:8080:8080
+    volumes:
+      - ./config.yaml:/app/config.yaml
+      - ./ssh-key:/app/ssh-key 
+```
