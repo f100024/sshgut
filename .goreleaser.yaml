@@ -1,5 +1,5 @@
 ---
-version: 1
+version: 2
 
 before:
   hooks:
@@ -44,6 +44,70 @@ archives:
     files:
       - LICENSE
       - config.yaml.example
+
+dockers:
+  - image_templates:
+      - "f100024/{{ .ProjectName }}:v{{ .Version }}-amd64"
+    use: buildx
+    goos: linux
+    goarch: amd64
+    dockerfile: Dockerfile-gha
+    build_flag_templates:
+      - "--platform=linux/amd64"
+      - "--label=org.opencontainers.image.created={{ .Date }}"
+      - "--label=org.opencontainers.image.title={{ .ProjectName }}"
+      - "--label=org.opencontainers.image.revision={{ .FullCommit }}"
+      - "--label=org.opencontainers.image.version={{ .Version }}"
+    extra_files:
+      - LICENSE
+      - config.yaml.example
+
+  - image_templates:
+    - "f100024/{{ .ProjectName }}:v{{ .Version }}-arm64"
+    use: buildx
+    goos: linux
+    goarch: arm64
+    dockerfile: Dockerfile-gha
+    build_flag_templates:
+      - "--platform=linux/arm64"
+      - "--push=true"
+      - "--label=org.opencontainers.image.created={{ .Date }}"
+      - "--label=org.opencontainers.image.title={{ .ProjectName }}"
+      - "--label=org.opencontainers.image.revision={{ .FullCommit }}"
+      - "--label=org.opencontainers.image.version={{ .Version }}"
+    extra_files:
+      - LICENSE
+      - config.yaml.example
+
+  - image_templates:
+    - "f100024/{{ .ProjectName }}:v{{ .Version }}-armv7"
+    use: buildx
+    goos: linux
+    goarch: arm
+    goarm: 7
+    dockerfile: Dockerfile-gha
+    build_flag_templates:
+      - "--platform=linux/arm/v7"
+      - "--push=true"
+      - "--label=org.opencontainers.image.created={{ .Date }}"
+      - "--label=org.opencontainers.image.title={{ .ProjectName }}"
+      - "--label=org.opencontainers.image.revision={{ .FullCommit }}"
+      - "--label=org.opencontainers.image.version={{ .Version }}"
+    extra_files:
+      - LICENSE
+      - config.yaml.example
+
+docker_manifests:
+  - name_template: f100024/{{ .ProjectName }}:v{{ .Version }}
+    image_templates:
+      - f100024/{{ .ProjectName }}:v{{ .Version }}-amd64
+      - f100024/{{ .ProjectName }}:v{{ .Version }}-arm64
+      - f100024/{{ .ProjectName }}:v{{ .Version }}-armv7
+  - name_template: f100024/{{ .ProjectName }}:latest
+    image_templates:
+      - f100024/{{ .ProjectName }}:v{{ .Version }}-amd64
+      - f100024/{{ .ProjectName }}:v{{ .Version }}-arm64
+      - f100024/{{ .ProjectName }}:v{{ .Version }}-armv7
 
 changelog:
   sort: asc
