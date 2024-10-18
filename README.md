@@ -36,6 +36,7 @@ usage: sshgut [<flags>]
 
 Flags:
   --[no-]help               Show context-sensitive help (also try --help-long and --help-man).
+  --[no-]debug              Add debug logs
   --config=config.yaml      Path to the configuration file
   --[no-]config-show        Show configuration file
   --[no-]config-show-names  Show names from configuration file
