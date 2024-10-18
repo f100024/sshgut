@@ -18,6 +18,8 @@ configs:
       host: 1.1.1.1 # Remote host for the mapping to the local host
       port: 11111 # Remote port for the mapping to the local host
     ssh:
+      # Forward type. Allowed values local | remote, default: local.
+      forward_type: local 
       host: 11.11.11.11
       user: user1
       port: 22
@@ -27,7 +29,7 @@ configs:
         password: 1
         key:
           path:
-          password:  
+          password: 
 ```
 ## How to use
 ```
