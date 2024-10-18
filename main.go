@@ -47,10 +47,11 @@ type Auth struct {
 }
 
 type Ssh struct {
-	Host string `yaml:"host"`
-	Port int    `yaml:"port"`
-	User string `yaml:"user"`
-	Auth Auth   `yaml:"auth"`
+	ForwardType string `yaml:"forward_type"`
+	Host        string `yaml:"host"`
+	Port        int    `yaml:"port"`
+	User        string `yaml:"user"`
+	Auth        Auth   `yaml:"auth"`
 }
 
 type Remote struct {
@@ -146,6 +147,10 @@ func createConnection(item *ItemConfig, waitGroup *sync.WaitGroup) {
 	} else {
 		item.Local.Host = "127.0.0.1"
 		sshTun.SetLocalHost(item.Local.Host)
+	}
+
+	if item.Ssh.ForwardType == "remote" {
+		sshTun.SetForwardType(1)
 	}
 
 	switch sshAuthMethod := item.Ssh.Auth.Method; sshAuthMethod {
