@@ -4,7 +4,7 @@ go 1.23
 
 require (
 	github.com/alecthomas/kingpin/v2 v2.4.0
-	github.com/rgzr/sshtun v1.1.0
+	github.com/rgzr/sshtun v1.2.0
 	github.com/rs/zerolog v1.33.0
 	golang.org/x/term v0.25.0
 	gopkg.in/yaml.v3 v3.0.1

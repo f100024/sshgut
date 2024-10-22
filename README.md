@@ -19,7 +19,17 @@ configs:
       port: 11111 # Remote port for the mapping to the local host
     ssh:
       # Forward type. Allowed values local | remote, default: local.
-      forward_type: local 
+      forward_type: local
+      key_exchanges: # Optional
+        - kexAlgoCurve25519SHA256
+        - kexAlgoCurve25519SHA256LibSSH
+      ciphers: # Optional
+        # - chacha20Poly1305ID4321
+        - aes256-ctr
+        - aes256-cbc
+      macs: # Optional
+        - hmac-sha2-256-etm@openssh.com
+        - hmac-sha2-512-etm@openssh.com
       host: 11.11.11.11
       user: user1
       port: 22

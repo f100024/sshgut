@@ -47,11 +47,14 @@ type Auth struct {
 }
 
 type Ssh struct {
-	ForwardType string `yaml:"forward_type"`
-	Host        string `yaml:"host"`
-	Port        int    `yaml:"port"`
-	User        string `yaml:"user"`
-	Auth        Auth   `yaml:"auth"`
+	ForwardType  string   `yaml:"forward_type"`
+	KeyExchanges []string `yaml:"key_exchanges"`
+	Ciphers      []string `yaml:"ciphers"`
+	MACs         []string `yaml:"macs"`
+	Host         string   `yaml:"host"`
+	Port         int      `yaml:"port"`
+	User         string   `yaml:"user"`
+	Auth         Auth     `yaml:"auth"`
 }
 
 type Remote struct {
@@ -152,6 +155,12 @@ func createConnection(item *ItemConfig, waitGroup *sync.WaitGroup) {
 	if item.Ssh.ForwardType == "remote" {
 		sshTun.SetForwardType(1)
 	}
+
+	// Supported, forbidden and preferred values 
+	// are in https://pkg.go.dev/golang.org/x/crypto/ssh#Config
+	sshTun.SetKeyExchanges(item.Ssh.KeyExchanges)
+	sshTun.SetCiphers(item.Ssh.Ciphers)
+	sshTun.SetMACs(item.Ssh.MACs)
 
 	switch sshAuthMethod := item.Ssh.Auth.Method; sshAuthMethod {
 	case "password":
