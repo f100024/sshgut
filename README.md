@@ -10,13 +10,18 @@ Example of the configuration file `config.yaml.example`
 ---
 version: "2"
 configs:
-  - name: server_name_1 # Server name id
+  # Server name id
+  - name: server_name_1
     local: 
-      host: 127.0.0.1 # Local interface for mapping
-      port: 8080 # Local port for mapping
+      # Local interface for mapping
+      host: 127.0.0.1
+      # Local port for mapping
+      port: 8080
     remote:
-      host: 1.1.1.1 # Remote host for the mapping to the local host
-      port: 11111 # Remote port for the mapping to the local host
+      # Remote host for the mapping to the local host
+      host: 1.1.1.1
+      # Remote port for the mapping to the local host
+      port: 11111
     ssh:
       # Forward type. Allowed values local | remote, default: local.
       forward_type: local
