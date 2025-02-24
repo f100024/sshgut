@@ -1,3 +1,4 @@
+// Package main is a build entry point of sshgut.
 package main
 
 import (
@@ -20,7 +21,10 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+// Version is sshgut current version.
 var Version = "0.0.0"
+
+// ConfigVersion is a version of supported configuration files.
 var ConfigVersion = "2"
 var wg sync.WaitGroup
 
@@ -35,18 +39,21 @@ var (
 	runCustomNames  = kingpin.Flag("run-custom-names", "Establish connection to custom names from config. Delimiter:','").String()
 )
 
+// Key is a struct with data about ssh key.
 type Key struct {
 	Path     string `yaml:"path"`
 	Password string `yaml:"password"`
 }
 
+// Auth is a struct containing authorization data.
 type Auth struct {
 	Method   string `yaml:"method"`
 	Password string `yaml:"password"`
 	Key      Key    `yaml:"key"`
 }
 
-type Ssh struct {
+// SSH is a struct with ssh connection properties.
+type SSH struct {
 	ForwardType  string   `yaml:"forward_type"`
 	KeyExchanges []string `yaml:"key_exchanges"`
 	Ciphers      []string `yaml:"ciphers"`
@@ -57,23 +64,27 @@ type Ssh struct {
 	Auth         Auth     `yaml:"auth"`
 }
 
+// Remote is a struct containing the remote `Host' and `Port' should be mapped locally.
 type Remote struct {
 	Host string `yaml:"host"`
 	Port int    `yaml:"port"`
 }
 
+// Local is a struct containing the local `Host` and `Port` where will be mapped to the local host.
 type Local struct {
 	Host string `yaml:"host"`
 	Port int    `yaml:"port"`
 }
 
+// ItemConfig struct describes `item` in the configuration file.
 type ItemConfig struct {
 	Name   string `yaml:"name"`
 	Local  Local  `yaml:"local"`
 	Remote Remote `yaml:"remote"`
-	Ssh    Ssh    `yaml:"ssh"`
+	SSH    SSH    `yaml:"ssh"`
 }
 
+// YamlConfig describes version and configuration of the connection
 type YamlConfig struct {
 	Version string       `yaml:"version"`
 	Configs []ItemConfig `yaml:"configs"`
@@ -103,31 +114,31 @@ func (configData *YamlConfig) showConfigNames() {
 	}
 }
 
-func (cfg *YamlConfig) getconfig(configPath string) {
-	configData, err := os.ReadFile(configPath)
+func (configData *YamlConfig) getconfig(configPath string) {
+	data, err := os.ReadFile(configPath)
 	if err != nil {
 		log.Fatal().Str("status", "not started").Msgf("Can not read file: %v", err)
 	}
-	err = yaml.Unmarshal(configData, &cfg)
+	err = yaml.Unmarshal(data, &configData)
 	if err != nil {
 		log.Fatal().Str("status", "not started").Msgf("Can not unmarshal yaml config: %v", err)
 	}
 
-	if ConfigVersion != cfg.Version {
+	if ConfigVersion != configData.Version {
 		log.Fatal().Str("status", "not started").
-			Msgf("Configuration version %s is not supported. Current config version is %s.", cfg.Version, ConfigVersion)
+			Msgf("Configuration version %s is not supported. Current config version is %s.", configData.Version, ConfigVersion)
 	}
 
-	for index, remote := range cfg.Configs {
+	for index, remote := range configData.Configs {
 		// Ask all passwords before start connection if any
-		authMethod := remote.Ssh.Auth.Method
-		authPassword := remote.Ssh.Auth.Password
-		authKeyPassword := remote.Ssh.Auth.Key.Password
+		authMethod := remote.SSH.Auth.Method
+		authPassword := remote.SSH.Auth.Password
+		authKeyPassword := remote.SSH.Auth.Key.Password
 		switch {
 		case authMethod == "password" && authPassword == "":
-			cfg.Configs[index].Ssh.Auth.Password = getPassword()
+			configData.Configs[index].SSH.Auth.Password = getPassword()
 		case (authMethod == "key-encrypted" || authMethod == "embedKey-encrypted") && authKeyPassword == "":
-			cfg.Configs[index].Ssh.Auth.Key.Password = getPassword()
+			configData.Configs[index].SSH.Auth.Key.Password = getPassword()
 		}
 	}
 
@@ -139,10 +150,10 @@ func createConnection(item *ItemConfig, waitGroup *sync.WaitGroup) {
 	// We make available remoteHostConfig.Server which uses port remoteHostConfig.RemotePort
 	// on localhost with port remoteHostConfig.LocalPort via sshConfig.Host using user sshConfig.User
 	// and port sshConfig.Port to connect to it.
-	sshTun := sshtun.New(item.Local.Port, item.Ssh.Host, item.Remote.Port)
+	sshTun := sshtun.New(item.Local.Port, item.SSH.Host, item.Remote.Port)
 	sshTun.SetRemoteHost(item.Remote.Host)
-	sshTun.SetUser(item.Ssh.User)
-	sshTun.SetPort(item.Ssh.Port)
+	sshTun.SetUser(item.SSH.User)
+	sshTun.SetPort(item.SSH.Port)
 
 	// Bind tunnel in the most obvious way and cover cases where `localHost` is not set in the remote config
 	if item.Local.Host != "" {
@@ -152,27 +163,27 @@ func createConnection(item *ItemConfig, waitGroup *sync.WaitGroup) {
 		sshTun.SetLocalHost(item.Local.Host)
 	}
 
-	if item.Ssh.ForwardType == "remote" {
+	if item.SSH.ForwardType == "remote" {
 		sshTun.SetForwardType(1)
 	}
 
-	// Supported, forbidden and preferred values 
+	// Supported, forbidden and preferred values
 	// are in https://pkg.go.dev/golang.org/x/crypto/ssh#Config
-	sshTun.SetKeyExchanges(item.Ssh.KeyExchanges)
-	sshTun.SetCiphers(item.Ssh.Ciphers)
-	sshTun.SetMACs(item.Ssh.MACs)
+	sshTun.SetKeyExchanges(item.SSH.KeyExchanges)
+	sshTun.SetCiphers(item.SSH.Ciphers)
+	sshTun.SetMACs(item.SSH.MACs)
 
-	switch sshAuthMethod := item.Ssh.Auth.Method; sshAuthMethod {
+	switch sshAuthMethod := item.SSH.Auth.Method; sshAuthMethod {
 	case "password":
-		sshTun.SetPassword(item.Ssh.Auth.Password)
+		sshTun.SetPassword(item.SSH.Auth.Password)
 	case "key":
-		sshTun.SetKeyFile(item.Ssh.Auth.Key.Path)
+		sshTun.SetKeyFile(item.SSH.Auth.Key.Path)
 	case "key-encrypted":
-		sshTun.SetEncryptedKeyFile(item.Ssh.Auth.Key.Path, item.Ssh.Auth.Key.Password)
+		sshTun.SetEncryptedKeyFile(item.SSH.Auth.Key.Path, item.SSH.Auth.Key.Password)
 	case "embedKey":
 		sshTun.SetKeyReader(bytes.NewBuffer(embedKey))
 	case "embedKey-encrypted":
-		sshTun.SetEncryptedKeyReader(bytes.NewBuffer(embedKey), item.Ssh.Auth.Key.Password)
+		sshTun.SetEncryptedKeyReader(bytes.NewBuffer(embedKey), item.SSH.Auth.Key.Password)
 	}
 
 	// We print each tunneled state to see the connections status
