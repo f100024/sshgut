@@ -23,7 +23,7 @@ func TestGetConfig(t *testing.T) {
 					Host: "1.1.1.1",
 					Port: 11111,
 				},
-				Ssh: Ssh{
+				SSH: SSH{
 					Host: "11.11.11.11",
 					User: "user1",
 					Port: 22,
@@ -47,7 +47,7 @@ func TestGetConfig(t *testing.T) {
 					Host: "2.2.2.2",
 					Port: 22222,
 				},
-				Ssh: Ssh{
+				SSH: SSH{
 					Host: "22.22.22.22",
 					User: "user2",
 					Port: 22,
@@ -71,7 +71,7 @@ func TestGetConfig(t *testing.T) {
 					Host: "3.3.3.3",
 					Port: 33333,
 				},
-				Ssh: Ssh{
+				SSH: SSH{
 					Host: "33.33.33.33",
 					User: "user3",
 					Port: 22,
@@ -95,7 +95,7 @@ func TestGetConfig(t *testing.T) {
 					Host: "4.4.4.4",
 					Port: 44444,
 				},
-				Ssh: Ssh{
+				SSH: SSH{
 					Host: "44.44.44.44",
 					User: "user4",
 					Port: 22,
@@ -119,7 +119,7 @@ func TestGetConfig(t *testing.T) {
 					Host: "5.5.5.5",
 					Port: 55555,
 				},
-				Ssh: Ssh{
+				SSH: SSH{
 					Host: "55.55.55.55",
 					User: "user5",
 					Port: 22,
