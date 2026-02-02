@@ -1,4 +1,5 @@
-FROM alpine:3.22
+FROM alpine:3.23
+ARG TARGETPLATFORM
 WORKDIR /app
 COPY . .
 ENTRYPOINT ["/app/sshgut"]

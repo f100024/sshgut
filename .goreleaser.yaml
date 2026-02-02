@@ -5,6 +5,8 @@ before:
   hooks:
     - go mod tidy
     - go test .
+    - docker buildx create --name mybuilder --driver docker-container --use --bootstrap || docker buildx use mybuilder
+
 builds:
   - env:
       - CGO_ENABLED=0
@@ -25,12 +27,12 @@ builds:
       - -X main.Version={{ .Version }}
     flags:
       - -trimpath
+
 checksum:
   name_template: "checksums.txt"
 
-
 archives:
-  - format: tar.gz
+  - formats: ['tar.gz']
     name_template: >-
       {{ .ProjectName }}_
       {{- title .Os }}_
@@ -40,74 +42,31 @@ archives:
       {{- if .Arm }}v{{ .Arm }}{{ end }}
     format_overrides:
       - goos: windows
-        format: zip
+        formats: ['zip']
     files:
       - LICENSE
       - config.yaml.example
 
-dockers:
-  - image_templates:
-      - "f100024/{{ .ProjectName }}:v{{ .Version }}-amd64"
-    use: buildx
-    goos: linux
-    goarch: amd64
+dockers_v2:
+  - images:
+      - "f100024/{{ .ProjectName }}"
+    tags:
+      - "v{{ .Version }}"
+      - "latest"
     dockerfile: Dockerfile-gha
-    build_flag_templates:
-      - "--platform=linux/amd64"
-      - "--label=org.opencontainers.image.created={{ .Date }}"
-      - "--label=org.opencontainers.image.title={{ .ProjectName }}"
-      - "--label=org.opencontainers.image.revision={{ .FullCommit }}"
-      - "--label=org.opencontainers.image.version={{ .Version }}"
+    labels:
+      org.opencontainers.image.created: "{{ .Date }}"
+      org.opencontainers.image.title: "{{ .ProjectName }}"
+      org.opencontainers.image.revision: "{{ .FullCommit }}"
+      org.opencontainers.image.version: "{{ .Version }}"
+    platforms:
+      - linux/amd64
+      - linux/arm64
+      - linux/arm/v7
     extra_files:
       - LICENSE
       - config.yaml.example
-
-  - image_templates:
-    - "f100024/{{ .ProjectName }}:v{{ .Version }}-arm64"
-    use: buildx
-    goos: linux
-    goarch: arm64
-    dockerfile: Dockerfile-gha
-    build_flag_templates:
-      - "--platform=linux/arm64"
-      - "--push=true"
-      - "--label=org.opencontainers.image.created={{ .Date }}"
-      - "--label=org.opencontainers.image.title={{ .ProjectName }}"
-      - "--label=org.opencontainers.image.revision={{ .FullCommit }}"
-      - "--label=org.opencontainers.image.version={{ .Version }}"
-    extra_files:
-      - LICENSE
-      - config.yaml.example
-
-  - image_templates:
-    - "f100024/{{ .ProjectName }}:v{{ .Version }}-armv7"
-    use: buildx
-    goos: linux
-    goarch: arm
-    goarm: 7
-    dockerfile: Dockerfile-gha
-    build_flag_templates:
-      - "--platform=linux/arm/v7"
-      - "--push=true"
-      - "--label=org.opencontainers.image.created={{ .Date }}"
-      - "--label=org.opencontainers.image.title={{ .ProjectName }}"
-      - "--label=org.opencontainers.image.revision={{ .FullCommit }}"
-      - "--label=org.opencontainers.image.version={{ .Version }}"
-    extra_files:
-      - LICENSE
-      - config.yaml.example
-
-docker_manifests:
-  - name_template: f100024/{{ .ProjectName }}:v{{ .Version }}
-    image_templates:
-      - f100024/{{ .ProjectName }}:v{{ .Version }}-amd64
-      - f100024/{{ .ProjectName }}:v{{ .Version }}-arm64
-      - f100024/{{ .ProjectName }}:v{{ .Version }}-armv7
-  - name_template: f100024/{{ .ProjectName }}:latest
-    image_templates:
-      - f100024/{{ .ProjectName }}:v{{ .Version }}-amd64
-      - f100024/{{ .ProjectName }}:v{{ .Version }}-arm64
-      - f100024/{{ .ProjectName }}:v{{ .Version }}-armv7
+    sbom: false
 
 changelog:
   sort: asc
