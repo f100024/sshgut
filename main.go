@@ -132,6 +132,12 @@ type YamlConfig struct {
 	Configs []ItemConfig `yaml:"configs"`
 }
 
+func clearBytes(b []byte) {
+	for i := range b {
+		b[i] = 0
+	}
+}
+
 func getPassword() string {
 	fmt.Println("Enter password")
 	bytepwd, err := term.ReadPassword(int(syscall.Stdin))
@@ -139,6 +145,7 @@ func getPassword() string {
 		log.Fatal().Str("status", "not started").Msgf("Can not read password input: %v", err)
 	}
 	strpwd := string(bytepwd)
+	clearBytes(bytepwd)
 	return strpwd
 }
 
