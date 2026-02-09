@@ -62,6 +62,26 @@ Flags:
   --[no-]version            Show application version.
 
 ```
+### Prometheus Metrics
+
+To enable the Prometheus metrics endpoint, use the `--metrics-addr` flag:
+
+```bash
+./sshgut --metrics-addr=:9090
+```
+
+Metrics are available at `http://localhost:9090/metrics`.
+
+| Metric | Type | Description |
+|--------|------|-------------|
+| `sshgut_tunnel_state` | Gauge | Current tunnel state (starting/started/stopped) |
+| `sshgut_tunnel_state_transitions_total` | Counter | Total state transitions |
+| `sshgut_tunneled_connections_total` | Counter | Total tunneled connections established |
+| `sshgut_tunneled_connections_active` | Gauge | Currently active tunneled connections |
+| `sshgut_tunneled_connection_errors_total` | Counter | Total tunneled connection errors |
+| `sshgut_tunnel_errors_total` | Counter | Total tunnel start errors |
+| `sshgut_tunnel_restarts_total` | Counter | Total tunnel restart attempts |
+
 ### Docker
 Add configuration file to the container.
 
