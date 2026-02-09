@@ -3,6 +3,8 @@ package main
 import (
 	"reflect"
 	"testing"
+
+	"github.com/prometheus/client_golang/prometheus"
 )
 
 func TestGetConfig(t *testing.T) {
@@ -140,4 +142,43 @@ func TestGetConfig(t *testing.T) {
 		t.Fatal()
 	}
 
+}
+
+func TestMetricsRegistered(t *testing.T) {
+	// Initialize metrics with a test label to make them visible in Gather()
+	// (Vec metrics don't appear until WithLabelValues is called at least once)
+	tunnelState.WithLabelValues("test", "starting")
+	tunnelStateTransitions.WithLabelValues("test", "starting")
+	tunneledConnectionsTotal.WithLabelValues("test")
+	tunneledConnectionsActive.WithLabelValues("test")
+	tunneledConnectionErrors.WithLabelValues("test")
+	tunnelErrors.WithLabelValues("test")
+	tunnelRestarts.WithLabelValues("test")
+
+	metrics, err := prometheus.DefaultGatherer.Gather()
+	if err != nil {
+		t.Fatalf("Failed to gather metrics: %v", err)
+	}
+
+	expected := map[string]bool{
+		"sshgut_tunnel_state":                      false,
+		"sshgut_tunnel_state_transitions_total":     false,
+		"sshgut_tunneled_connections_total":          false,
+		"sshgut_tunneled_connections_active":         false,
+		"sshgut_tunneled_connection_errors_total":    false,
+		"sshgut_tunnel_errors_total":                 false,
+		"sshgut_tunnel_restarts_total":               false,
+	}
+
+	for _, m := range metrics {
+		if _, ok := expected[m.GetName()]; ok {
+			expected[m.GetName()] = true
+		}
+	}
+
+	for name, found := range expected {
+		if !found {
+			t.Errorf("Metric %s not registered", name)
+		}
+	}
 }

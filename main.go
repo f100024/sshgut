@@ -6,6 +6,7 @@ import (
 	"context"
 	_ "embed"
 	"fmt"
+	"net/http"
 	"slices"
 	"strings"
 	"time"
@@ -15,6 +16,9 @@ import (
 	"syscall"
 
 	"github.com/alecthomas/kingpin/v2"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/rgzr/sshtun"
 	"github.com/rs/zerolog/log"
 	"golang.org/x/term"
@@ -37,6 +41,44 @@ var (
 	configShow      = kingpin.Flag("config-show", "Show configuration file").Bool()
 	configShowNames = kingpin.Flag("config-show-names", "Show names from configuration file").Bool()
 	runCustomNames  = kingpin.Flag("run-custom-names", "Establish connection to custom names from config. Delimiter:','").String()
+	metricsAddr     = kingpin.Flag("metrics-addr", "Address for Prometheus metrics endpoint (e.g. :9090). Disabled if empty.").Default("").String()
+)
+
+var (
+	tunnelState = promauto.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "sshgut_tunnel_state",
+		Help: "Current state of SSH tunnel (1 = active, 0 = inactive). States: starting, started, stopped.",
+	}, []string{"name", "state"})
+
+	tunnelStateTransitions = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "sshgut_tunnel_state_transitions_total",
+		Help: "Total number of tunnel state transitions.",
+	}, []string{"name", "state"})
+
+	tunneledConnectionsTotal = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "sshgut_tunneled_connections_total",
+		Help: "Total number of tunneled connections established.",
+	}, []string{"name"})
+
+	tunneledConnectionsActive = promauto.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "sshgut_tunneled_connections_active",
+		Help: "Number of currently active tunneled connections.",
+	}, []string{"name"})
+
+	tunneledConnectionErrors = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "sshgut_tunneled_connection_errors_total",
+		Help: "Total number of tunneled connection errors.",
+	}, []string{"name"})
+
+	tunnelErrors = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "sshgut_tunnel_errors_total",
+		Help: "Total number of SSH tunnel start errors.",
+	}, []string{"name"})
+
+	tunnelRestarts = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "sshgut_tunnel_restarts_total",
+		Help: "Total number of tunnel restart attempts.",
+	}, []string{"name"})
 )
 
 // Key is a struct with data about ssh key.
@@ -191,6 +233,16 @@ func createConnection(item *ItemConfig, waitGroup *sync.WaitGroup) {
 		if *debugMode {
 			log.Debug().Str("status", "ok").Str("name", item.Name).Msgf("%+v", state)
 		}
+		if state.Ready {
+			tunneledConnectionsTotal.WithLabelValues(item.Name).Inc()
+			tunneledConnectionsActive.WithLabelValues(item.Name).Inc()
+		}
+		if state.Closed {
+			tunneledConnectionsActive.WithLabelValues(item.Name).Dec()
+		}
+		if state.Error != nil {
+			tunneledConnectionErrors.WithLabelValues(item.Name).Inc()
+		}
 	})
 
 	// We set a callback to know when the tunnel is ready
@@ -199,19 +251,33 @@ func createConnection(item *ItemConfig, waitGroup *sync.WaitGroup) {
 		case sshtun.StateStarting:
 			log.Info().Str("status", "starting").Str("name", item.Name).Msgf("Host %v port %v available on %v:%v",
 				item.Remote.Host, item.Remote.Port, item.Local.Host, item.Local.Port)
+			tunnelState.WithLabelValues(item.Name, "starting").Set(1)
+			tunnelState.WithLabelValues(item.Name, "started").Set(0)
+			tunnelState.WithLabelValues(item.Name, "stopped").Set(0)
+			tunnelStateTransitions.WithLabelValues(item.Name, "starting").Inc()
 		case sshtun.StateStarted:
 			log.Info().Str("status", "started").Str("name", item.Name).Msgf("Host %v port %v available on %v:%v",
 				item.Remote.Host, item.Remote.Port, item.Local.Host, item.Local.Port)
+			tunnelState.WithLabelValues(item.Name, "starting").Set(0)
+			tunnelState.WithLabelValues(item.Name, "started").Set(1)
+			tunnelState.WithLabelValues(item.Name, "stopped").Set(0)
+			tunnelStateTransitions.WithLabelValues(item.Name, "started").Inc()
 		case sshtun.StateStopped:
 			log.Info().Str("status", "stopped").Str("name", item.Name).Msgf("Host %v port %v available on %v:%v",
 				item.Remote.Host, item.Remote.Port, item.Local.Host, item.Local.Port)
+			tunnelState.WithLabelValues(item.Name, "starting").Set(0)
+			tunnelState.WithLabelValues(item.Name, "started").Set(0)
+			tunnelState.WithLabelValues(item.Name, "stopped").Set(1)
+			tunnelStateTransitions.WithLabelValues(item.Name, "stopped").Inc()
 		}
 	})
 
 	// We start the tunnel (and restart it every time it is stopped)
 	for {
+		tunnelRestarts.WithLabelValues(item.Name).Inc()
 		if err := sshTun.Start(context.Background()); err != nil {
 			log.Error().Msgf("SSH tunnel error: %v", err)
+			tunnelErrors.WithLabelValues(item.Name).Inc()
 			time.Sleep(time.Second)
 		}
 	}
@@ -242,6 +308,17 @@ func main() {
 				}
 			}
 			return customConfigs
+		}()
+	}
+
+	if *metricsAddr != "" {
+		go func() {
+			mux := http.NewServeMux()
+			mux.Handle("/metrics", promhttp.Handler())
+			log.Info().Msgf("Starting metrics server on %s", *metricsAddr)
+			if err := http.ListenAndServe(*metricsAddr, mux); err != nil {
+				log.Fatal().Msgf("Metrics server error: %v", err)
+			}
 		}()
 	}
 
