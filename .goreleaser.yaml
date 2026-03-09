@@ -22,6 +22,9 @@ builds:
       - ppc64
     goarm:
       - "7"
+    ignore:
+      - goos: windows
+        goarch: arm
     mod_timestamp: "{{ .CommitTimestamp }}"
     ldflags:
       - -X main.Version={{ .Version }}
