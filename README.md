@@ -99,9 +99,15 @@ version: '2'
 services:
   sshgut:
     image: f100024/sshgut:latest
+    command: '--metrics-addr=:9090'
     ports:
       - 127.0.0.1:8080:8080
+      - 127.0.0.1:9090:9090
     volumes:
       - ./config.yaml:/app/config.yaml
-      - ./ssh-key:/app/ssh-key 
+      - ./ssh-key:/app/ssh-key
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
 ```
