@@ -1,5 +1,8 @@
-FROM alpine:3.23
+FROM gcr.io/distroless/static-debian13
+
 ARG TARGETPLATFORM
+COPY $TARGETPLATFORM/sshgut /app/sshgut
 WORKDIR /app
-COPY . .
+USER nonroot:nonroot
+
 ENTRYPOINT ["/app/sshgut"]
