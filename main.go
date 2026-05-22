@@ -16,10 +16,10 @@ import (
 	"syscall"
 
 	"github.com/alecthomas/kingpin/v2"
+	"github.com/f100024/sshtun"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-	"github.com/rgzr/sshtun"
 	"github.com/rs/zerolog/log"
 	"golang.org/x/term"
 	"gopkg.in/yaml.v3"
