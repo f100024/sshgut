@@ -27,6 +27,8 @@ builds:
         goarch: arm
     mod_timestamp: "{{ .CommitTimestamp }}"
     ldflags:
+      - -w
+      - -s
       - -X main.Version={{ .Version }}
     flags:
       - -trimpath
