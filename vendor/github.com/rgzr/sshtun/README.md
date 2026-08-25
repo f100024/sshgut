@@ -1,5 +1,5 @@
 # sshtun
-This is fork.
+
 [![GoDoc](https://godoc.org/github.com/golang/gddo?status.svg)](https://godoc.org/github.com/rgzr/sshtun)
 
 sshtun is a Go package that provides a SSH tunnel with port forwarding supporting:
@@ -17,7 +17,7 @@ The default locations are `~/.ssh/id_rsa`, `~/.ssh/id_dsa`, `~/.ssh/id_ecdsa`, `
 
 ## Installation
 
-`go get github.com/f100024/sshtun`
+`go get github.com/rgzr/sshtun`
 
 ## Example
 
@@ -29,7 +29,7 @@ import (
 	"log"
 	"time"
 
-	"github.com/f100024/sshtun"
+	"github.com/rgzr/sshtun"
 )
 
 func main() {
