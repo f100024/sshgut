@@ -27,3 +27,5 @@ sshgut
 *.zip
 config.yaml
 .vscode/
+*.patch
+*.bak
